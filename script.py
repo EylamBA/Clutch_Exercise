@@ -3,17 +3,23 @@ import time
 import ast
 import os
 
-#GitHub Url that works with the API
+
+# create the folders to contains the files in the project
+os.makedirs("Data_Gathered", exist_ok=True)
+os.makedirs("Unified_Files", exist_ok=True)
+
+# gitHub Url that works with the API
 GITHUB_API_URL = "https://api.github.com/user"
 GITHUB_PAT_FILE = "GITHUB_PAT.txt"
 
+# global varibles
 OKTA_DOMAIN = ""
 OKTA_API_TOKEN = ""
 GROUP_NAME = 'Clutch'
-
 DIRECTORY_TO_SAVE_DATA_GATHERD = "Data_Gathered"
 GITHUB_RELATED_FILES = "GitHub-"
 OKTA_RELATED_FILES = "Okta-"
+
 
 def getGitHubUserDataUsingPAT():
     """
@@ -39,6 +45,8 @@ def getGitHubUserDataUsingPAT():
 
         # parsing the data got from the request into json format
         user_data = response.json()
+        # Get the scopes from the response headers
+        token_scopes = response.headers.get('X-OAuth-Scopes')
 
         #cretaing a file for each user that contains the information about the user
         login_data =  user_data["login"]
@@ -47,6 +55,7 @@ def getGitHubUserDataUsingPAT():
             f.write(f"PAT: {pat}\n")
             for key, value in user_data.items():
                 f.write(f"{key}: {value}\n")
+            f.write(f"TokenScopes: {token_scopes}")
         
         print(f"Added GitHub data of {login_data}")
         time.sleep(0.2)
@@ -100,7 +109,18 @@ def getGroupIdInOkta():
     group_id = groups[0]['id']
     return group_id
 
+
 def getUsersFromThegroup(group_id):
+    """
+    Get users from a group in Okta
+
+    Args:
+        group_id (string): the id of the group to take the users from
+
+    Returns:
+        list: list of the data of each user
+    """
+
     # The header of the request, containd the OKTA user API token
     headers = {
         'Authorization': f'SSWS {OKTA_API_TOKEN}',
@@ -125,7 +145,16 @@ def getUsersFromThegroup(group_id):
     
     return users_list
 
-def writingTheDataToFiles(users_list):
+
+def writingTheOktaDataToFiles(users_list):
+    """
+    Writing the data of each user from Okta to the data file
+
+    Args:
+        users_list (list): the list that contain the data of each user gathered
+    """
+
+     # The header of the request, containd the OKTA user API token
     headers = {
         'Authorization': f'SSWS {OKTA_API_TOKEN}',
         'Accept': 'application/json'
@@ -152,7 +181,6 @@ def writingTheDataToFiles(users_list):
         for app in apps:
             for key, value in app.items():
                 lines.append(f"{key}: {value}")
-        #lines.append(f"{apps}\n")
 
         # Write to file
         with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename}", 'w') as f:
@@ -162,14 +190,16 @@ def writingTheDataToFiles(users_list):
 
         time.sleep(0.2)
 
+
 def getOktaUsersData():
     """
     Getting the data of the OKTA users
     """
+    
     getOktaDetails()
     group_id = getGroupIdInOkta()
     users_list = getUsersFromThegroup(group_id)
-    writingTheDataToFiles(users_list)
+    writingTheOktaDataToFiles(users_list)
 
 
 def extractFiledsFromGitHubData(github_user_data_file_path):
@@ -186,7 +216,7 @@ def extractFiledsFromGitHubData(github_user_data_file_path):
     github_data = {}
 
     # keys to take from the file
-    keys_to_gather = ["PAT", "login", "id", "name", "email", "notification_email", "created_at"]
+    keys_to_gather = ["PAT", "login", "id", "name", "email", "notification_email", "created_at", "TokenScopes"]
 
     with open(github_user_data_file_path, 'r') as f:
         for line in f:
@@ -209,6 +239,7 @@ def extractFiledsFromGitHubData(github_user_data_file_path):
                 github_data[key] = value
 
     return github_data
+
 
 def extractFiledsFromOktaData(okta_user_data_file_path):
     """
@@ -283,6 +314,7 @@ def unifiedData():
                 with open(f"Unified_Files\{filename}", 'w') as f:
                     pat = g_user["PAT"]
                     first_name = o_user["firstName"]
+                    scopes = g_user["TokenScopes"]
                     f.write(f"Okta user {first_name} have PAT: {pat}\n\n")
 
                     f.write("GitHub data:\n")
@@ -297,9 +329,11 @@ def unifiedData():
                 print(f"Added unified data of {first_name}")
 
 
-
-
 def main():
+    """
+    Main function, responsible for the flow of the script
+    """
+
     getGitHubUserDataUsingPAT()
     getOktaUsersData()
     unifiedData()
