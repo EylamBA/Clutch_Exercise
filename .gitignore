@@ -5,6 +5,9 @@ TOKENS.txt
 # Ignore the Data_Gathered folder
 Data_Gathered/
 
+# Ignore the Unified_Files folder
+Unified_Files/
+
 # Byte-compiled / cache files
 __pycache__/
 *.py[cod]

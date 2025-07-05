@@ -1,5 +1,7 @@
 import requests
 import time 
+import ast
+import os
 
 #GitHub Url that works with the API
 GITHUB_API_URL = "https://api.github.com/user"
@@ -8,6 +10,10 @@ GITHUB_PAT_FILE = "GITHUB_PAT.txt"
 OKTA_DOMAIN = ""
 OKTA_API_TOKEN = ""
 GROUP_NAME = 'Clutch'
+
+DIRECTORY_TO_SAVE_DATA_GATHERD = "Data_Gathered"
+GITHUB_RELATED_FILES = "GitHub-"
+OKTA_RELATED_FILES = "Okta-"
 
 def getGitHubUserDataUsingPAT():
     """
@@ -36,14 +42,14 @@ def getGitHubUserDataUsingPAT():
 
         #cretaing a file for each user that contains the information about the user
         login_data =  user_data["login"]
-        output_filename = "GitHub-" + login_data
-        with open(f"Data_Gathered\{output_filename}.txt", 'w') as f:
+        output_filename = GITHUB_RELATED_FILES + login_data + ".txt"
+        with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{output_filename}", 'w') as f:
             f.write(f"PAT: {pat}\n")
             for key, value in user_data.items():
                 f.write(f"{key}: {value}\n")
         
         print(f"Added GitHub data of {login_data}")
-        time.sleep(0.5)
+        time.sleep(0.2)
 
 
 def getOktaDetails():
@@ -129,7 +135,7 @@ def writingTheDataToFiles(users_list):
         # create the folder name of the user
         uid = user['id']
         login = user['profile'].get('login', uid).replace('@', '_at_')
-        filename = f'Okta-{login}.txt'
+        filename = f'{OKTA_RELATED_FILES}{login}.txt'
         lines = []
 
         # getting full user details
@@ -149,12 +155,12 @@ def writingTheDataToFiles(users_list):
         #lines.append(f"{apps}\n")
 
         # Write to file
-        with open(f"Data_Gathered\{filename}.txt", 'w') as f:
+        with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename}", 'w') as f:
             f.write("\n".join(lines))
         
         print(f"Added Okta data of {login}")
-        
-        time.sleep(0.5)
+
+        time.sleep(0.2)
 
 def getOktaUsersData():
     """
@@ -166,10 +172,137 @@ def getOktaUsersData():
     writingTheDataToFiles(users_list)
 
 
+def extractFiledsFromGitHubData(github_user_data_file_path):
+    """
+    Get the desegnatied fiels from the github data file
+
+    Args:
+        github_user_data_file_path (string): the path to the github file
+
+    Returns:
+        dict: contains all the key and values from the github file
+    """
+
+    github_data = {}
+
+    # keys to take from the file
+    keys_to_gather = ["PAT", "login", "id", "name", "email", "notification_email", "created_at"]
+
+    with open(github_user_data_file_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # skip empty lines
+            if not line:
+                continue
+
+            # split key and value
+            if ':' not in line:
+                continue  
+
+            # get key and value
+            key, value = line.split(':', 1)
+            key = key.strip()
+            value = value.strip()
+
+            # parse only PAT, login, id, name, email, notification_email, created_at
+            if key in keys_to_gather and key not in github_data:
+                github_data[key] = value
+
+    return github_data
+
+def extractFiledsFromOktaData(okta_user_data_file_path):
+    """
+    Get the desegnatied fiels from the okta data file
+
+    Args:
+        okta_user_data_file_path (string): the path to the okta file
+
+    Returns:
+        dict: contains all the key and values from the okta file
+    """
+
+    okta_data = {}
+
+    # keys to take from the file
+    keys_to_gather = ['id', 'status', 'created', 'activated', 'label']
+
+    with open(okta_user_data_file_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # skip empty lines
+            if not line:
+                continue
+
+            # split key and value
+            if ':' not in line:
+                continue  
+
+            # get key and value
+            key, value = line.split(':', 1)
+            key = key.strip()
+            value = value.strip()
+
+            # parse only id, status, created, activated, label, profile(firstName, lastName, login, email) data
+            if key in keys_to_gather and key not in okta_data:
+                okta_data[key] = value
+            elif key == 'profile':
+                try:
+                    profile_dict = ast.literal_eval(value)
+                    okta_data['firstName'] = profile_dict.get('firstName', '')
+                    okta_data['lastName'] = profile_dict.get('lastName', '')
+                    okta_data['login'] = profile_dict.get('login', '')
+                    okta_data['email'] = profile_dict.get('email', '')
+                except Exception:
+                    pass
+    
+    return okta_data
+
+
+def unifiedData():
+    """
+    gather the data from all the files and unified the ones who realted to the same user
+    """
+
+    # go through every file and gather the data needed
+    github_data = []
+    okta_data = []
+    for data_file in os.listdir(DIRECTORY_TO_SAVE_DATA_GATHERD):
+        path = os.path.join(DIRECTORY_TO_SAVE_DATA_GATHERD, data_file)
+        if GITHUB_RELATED_FILES in path:
+            github_data.append(extractFiledsFromGitHubData(path))
+        if OKTA_RELATED_FILES in path:
+            okta_data.append(extractFiledsFromOktaData(path))
+    
+    # check for same user on the diffrent file
+    for g_user in github_data:
+        for o_user in okta_data:
+            if g_user["notification_email"] == o_user["email"]:
+                filename = o_user["firstName"] + ".txt"
+
+                # open a file and write the data that related to the user from github and okta
+                with open(f"Unified_Files\{filename}", 'w') as f:
+                    pat = g_user["PAT"]
+                    first_name = o_user["firstName"]
+                    f.write(f"Okta user {first_name} have PAT: {pat}\n\n")
+
+                    f.write("GitHub data:\n")
+                    for key, value in g_user.items():
+                        f.write(f"{key}: {value}\n")
+
+                    f.write("\nOkta data:\n")
+                    for key, value in o_user.items():
+                        f.write(f"{key}: {value}\n")
+
+            
+                print(f"Added unified data of {first_name}")
+
+
+
 
 def main():
     getGitHubUserDataUsingPAT()
     getOktaUsersData()
+    unifiedData()
 
 
 if __name__ == "__main__":
