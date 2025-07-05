@@ -1,4 +1,4 @@
-# Ignore GitHub personal access tokens and other sensitive files
+# Ignore GitHub PAT and other sensitive files
 GITHUB_PAT.txt
 TOKENS.txt
 OKTA_DATA.txt
