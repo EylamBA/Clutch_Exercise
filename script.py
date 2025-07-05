@@ -17,6 +17,7 @@ OKTA_DOMAIN = ""
 OKTA_API_TOKEN = ""
 GROUP_NAME = 'Clutch'
 DIRECTORY_TO_SAVE_DATA_GATHERD = "Data_Gathered"
+DIRECTORY_TO_SAVE_DATA_UNIFIED = "Unified_Files"
 GITHUB_RELATED_FILES = "GitHub-"
 OKTA_RELATED_FILES = "Okta-"
 
@@ -28,11 +29,18 @@ def getGitHubUserDataUsingPAT():
 
     # getting the PAT from the file
     PATs = []
-    pats_file = open("GITHUB_PAT.txt", "r")
-    pats_lines = pats_file.readlines()
-    for pat in pats_lines:
-        pat = pat.rstrip('\n')
-        PATs.append(pat)
+    try:
+        with open("GITHUB_PAT.txt", "r") as pats_file:
+            pats_lines = pats_file.readlines()
+            for pat in pats_lines:
+                pat = pat.rstrip('\n')
+                PATs.append(pat)
+    except FileNotFoundError:
+        print("Error: GITHUB_PAT.txt was not found.")
+        return
+    except IOError as e:
+        print(f"Error while reading GITHUB_PAT.txt: {e}")
+        return
 
 
     for pat in PATs:
@@ -51,11 +59,20 @@ def getGitHubUserDataUsingPAT():
         #cretaing a file for each user that contains the information about the user
         login_data =  user_data["login"]
         output_filename = GITHUB_RELATED_FILES + login_data + ".txt"
-        with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{output_filename}", 'w') as f:
-            f.write(f"PAT: {pat}\n")
-            for key, value in user_data.items():
-                f.write(f"{key}: {value}\n")
-            f.write(f"TokenScopes: {token_scopes}")
+        
+        # Write to file
+        try:
+            with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{output_filename}", 'w') as f:
+                f.write(f"PAT: {pat}\n")
+                for key, value in user_data.items():
+                    f.write(f"{key}: {value}\n")
+                f.write(f"TokenScopes: {token_scopes}")
+        except FileNotFoundError:
+            print(f"Error: {DIRECTORY_TO_SAVE_DATA_GATHERD}\{output_filename} was not found.")
+            return
+        except IOError as e:
+            print(f"Error while wrting to {DIRECTORY_TO_SAVE_DATA_GATHERD}\{output_filename}: {e}")
+            return
         
         print(f"Added GitHub data of {login_data}")
         time.sleep(0.2)
@@ -76,14 +93,22 @@ def getOktaDetails():
     okta_domain = okta_domain.split(" ")[1]
     OKTA_DOMAIN = f'https://{okta_domain}'
 
+
     # get the API token of the okta user from the token file
     tokens = {}
-    tokens_file = open("TOKENS.txt", "r")
-    tokens_lines = tokens_file.readlines()
-    for line in tokens_lines:
-        line = line.rstrip('\n')
-        line = line.split(" ")
-        tokens[line[0]] = line[1]
+    try:
+        with open("TOKENS.txt", "r") as tokens_file:
+            tokens_lines = tokens_file.readlines()
+            for line in tokens_lines:
+                line = line.rstrip('\n')
+                line = line.split(" ")
+                tokens[line[0]] = line[1]
+    except FileNotFoundError:
+        print("Error: TOKENS.txt was not found.")
+        return
+    except IOError as e:
+        print(f"Error while reading TOKENS.txt: {e}")
+        return
     
     OKTA_API_TOKEN = tokens["OKTA_API_TOKEN"]
 
@@ -183,9 +208,16 @@ def writingTheOktaDataToFiles(users_list):
                 lines.append(f"{key}: {value}")
 
         # Write to file
-        with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename}", 'w') as f:
-            f.write("\n".join(lines))
-        
+        try:
+            with open(f"{DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename}", 'w') as f:
+                f.write("\n".join(lines))
+        except FileNotFoundError:
+            print(f"Error: {DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename} was not found.")
+            return
+        except IOError as e:
+            print(f"Error while writing to {DIRECTORY_TO_SAVE_DATA_GATHERD}\{filename}: {e}")
+            return
+
         print(f"Added Okta data of {login}")
 
         time.sleep(0.2)
@@ -195,7 +227,7 @@ def getOktaUsersData():
     """
     Getting the data of the OKTA users
     """
-    
+
     getOktaDetails()
     group_id = getGroupIdInOkta()
     users_list = getUsersFromThegroup(group_id)
@@ -218,26 +250,35 @@ def extractFiledsFromGitHubData(github_user_data_file_path):
     # keys to take from the file
     keys_to_gather = ["PAT", "login", "id", "name", "email", "notification_email", "created_at", "TokenScopes"]
 
-    with open(github_user_data_file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            # skip empty lines
-            if not line:
-                continue
 
-            # split key and value
-            if ':' not in line:
-                continue  
+    try:
+        with open(github_user_data_file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # skip empty lines
+                if not line:
+                    continue
 
-            # get key and value
-            key, value = line.split(':', 1)
-            key = key.strip()
-            value = value.strip()
+                # split key and value
+                if ':' not in line:
+                    continue  
 
-            # parse only PAT, login, id, name, email, notification_email, created_at
-            if key in keys_to_gather and key not in github_data:
-                github_data[key] = value
+                # get key and value
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
 
+                # parse only PAT, login, id, name, email, notification_email, created_at
+                if key in keys_to_gather and key not in github_data:
+                    github_data[key] = value
+    except FileNotFoundError:
+        print(f"Error: {DIRECTORY_TO_SAVE_DATA_GATHERD}\{github_user_data_file_path} GITHUB_PAT.txt was not found.")
+        return
+    except IOError as e:
+        print(f"Error while reading {DIRECTORY_TO_SAVE_DATA_GATHERD}\{github_user_data_file_path}: {e}")
+        return
+    
+    
     return github_data
 
 
@@ -257,34 +298,42 @@ def extractFiledsFromOktaData(okta_user_data_file_path):
     # keys to take from the file
     keys_to_gather = ['id', 'status', 'created', 'activated', 'label']
 
-    with open(okta_user_data_file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            # skip empty lines
-            if not line:
-                continue
+    try:
+        with open(okta_user_data_file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # skip empty lines
+                if not line:
+                    continue
 
-            # split key and value
-            if ':' not in line:
-                continue  
+                # split key and value
+                if ':' not in line:
+                    continue  
 
-            # get key and value
-            key, value = line.split(':', 1)
-            key = key.strip()
-            value = value.strip()
+                # get key and value
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
 
-            # parse only id, status, created, activated, label, profile(firstName, lastName, login, email) data
-            if key in keys_to_gather and key not in okta_data:
-                okta_data[key] = value
-            elif key == 'profile':
-                try:
-                    profile_dict = ast.literal_eval(value)
-                    okta_data['firstName'] = profile_dict.get('firstName', '')
-                    okta_data['lastName'] = profile_dict.get('lastName', '')
-                    okta_data['login'] = profile_dict.get('login', '')
-                    okta_data['email'] = profile_dict.get('email', '')
-                except Exception:
-                    pass
+                # parse only id, status, created, activated, label, profile(firstName, lastName, login, email) data
+                if key in keys_to_gather and key not in okta_data:
+                    okta_data[key] = value
+                elif key == 'profile':
+                    try:
+                        profile_dict = ast.literal_eval(value)
+                        okta_data['firstName'] = profile_dict.get('firstName', '')
+                        okta_data['lastName'] = profile_dict.get('lastName', '')
+                        okta_data['login'] = profile_dict.get('login', '')
+                        okta_data['email'] = profile_dict.get('email', '')
+                    except Exception:
+                        pass
+    except FileNotFoundError:
+        print(f"Error: {DIRECTORY_TO_SAVE_DATA_GATHERD}\{okta_user_data_file_path} GITHUB_PAT.txt was not found.")
+        return
+    except IOError as e:
+        print(f"Error while reading {DIRECTORY_TO_SAVE_DATA_GATHERD}\{okta_user_data_file_path}: {e}")
+        return
+    
     
     return okta_data
 
@@ -310,22 +359,28 @@ def unifiedData():
             if g_user["notification_email"] == o_user["email"]:
                 filename = o_user["firstName"] + ".txt"
 
-                # open a file and write the data that related to the user from github and okta
-                with open(f"Unified_Files\{filename}", 'w') as f:
-                    pat = g_user["PAT"]
-                    first_name = o_user["firstName"]
-                    scopes = g_user["TokenScopes"]
-                    f.write(f"Okta user {first_name} have PAT: {pat}\n\n")
+                try:
+                    # open a file and write the data that related to the user from github and okta
+                    with open(f"{DIRECTORY_TO_SAVE_DATA_UNIFIED}\{filename}", 'w') as f:
+                        pat = g_user["PAT"]
+                        first_name = o_user["firstName"]
+                        scopes = g_user["TokenScopes"]
+                        f.write(f"Okta user {first_name} have PAT: {pat}\n\n")
 
-                    f.write("GitHub data:\n")
-                    for key, value in g_user.items():
-                        f.write(f"{key}: {value}\n")
+                        f.write("GitHub data:\n")
+                        for key, value in g_user.items():
+                            f.write(f"{key}: {value}\n")
 
-                    f.write("\nOkta data:\n")
-                    for key, value in o_user.items():
-                        f.write(f"{key}: {value}\n")
-
-            
+                        f.write("\nOkta data:\n")
+                        for key, value in o_user.items():
+                            f.write(f"{key}: {value}\n")
+                except FileNotFoundError:
+                    print(f"Error: {DIRECTORY_TO_SAVE_DATA_UNIFIED}\{filename} was not found.")
+                    return
+                except IOError as e:
+                    print(f"Error while wrting to {DIRECTORY_TO_SAVE_DATA_UNIFIED}\{filename}: {e}")
+                    return
+    
                 print(f"Added unified data of {first_name}")
 
 
