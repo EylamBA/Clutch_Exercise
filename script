@@ -1,0 +1,46 @@
+import requests
+
+#GitHub Url that works with the API
+GITHUB_API_URL = "https://api.github.com/user"
+GITHUB_PAT_FILE = "GITHUB_PAT.txt"
+
+
+def getUserDataUsingPAT():
+    """
+    The function get the PATS from the PATS file and get the data of each user from it PAT
+    """
+
+    # getting the PAT from the file
+    PATs = []
+    pats_file = open("GITHUB_PAT.txt", "r")
+    pats_lines = pats_file.readlines()
+    for pat in pats_lines:
+        pat = pat.rstrip('\n')
+        PATs.append(pat)
+
+
+    for pat in PATs:
+        # cretaing the request of the data from the PAT
+        headers = {
+        "Authorization": f"token {pat}",
+        "Accept": "application/vnd.github+json"
+        }
+        response = requests.get(GITHUB_API_URL, headers=headers)
+
+        # parsing the data got from the request into json format
+        user_data = response.json()
+
+        #cretaing a file for each user that contains the information about the user
+        output_filename = "GitHub-" + user_data["login"]
+        with open(f"Data_Gathered\{output_filename}", 'w') as f:
+            f.write(f"PAT: {pat}\n")
+            for key, value in user_data.items():
+                f.write(f"{key}: {value}\n")
+
+
+def main():
+    getUserDataUsingPAT()
+
+
+if __name__ == "__main__":
+    main()

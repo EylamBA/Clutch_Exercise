@@ -2,6 +2,9 @@
 GITHUB_PAT.txt
 TOKENS.txt
 
+# Ignore the Data_Gathered folder
+Data_Gathered/
+
 # Byte-compiled / cache files
 __pycache__/
 *.py[cod]
