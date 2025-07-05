@@ -198,7 +198,6 @@ def writingTheOktaDataToFiles(users_list):
         user_full = r.json()
         for key, value in user_full.items():
                 lines.append(f"{key}: {value}")
-        #lines.append(f"{user_full}\n")
 
         # getting assigned apps of teh user
         apps_url = f'{OKTA_DOMAIN}/api/v1/apps?filter=user.id+eq+"{uid}"'
